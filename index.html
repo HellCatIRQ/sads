@@ -2,7 +2,7 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<title>A3SaT Instagram:@jz.pd</title>
+<title>منصة السادس - فيديوهات</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 :root {
@@ -32,8 +32,9 @@ video { width: 100%; max-width: 100%; margin-top: 10px; background:#000; border-
 </head>
 <body>
 <button class="dark-toggle" onclick="toggleDark()">🌙/☀️</button>
-<header><h1>A3SaT Instagram:@jz.pd</h1></header>
+<header><h1>منصة السادس - الفيديوهات</h1></header>
 <div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script>
 let teachersData = [];
 let state = {page:'teachers', teacher:null, classIdx:null, lectureIdx:null};
@@ -79,9 +80,9 @@ function getQualities(url){
 function changeQuality(u){
   renderCustomPlayer(u,true);
 }
-function renderCustomPlayer(url,autoplay){
-  const wrap=document.getElementById('playerWrap');
-  wrap.innerHTML = `<video id='vid' src='${url}' style='width:100%;background:#000;border-radius:10px;display:block;' ${autoplay!==false?'autoplay':''} tabindex='0'></video>
+function renderCustomPlayer(url, autoplay) {
+  const wrap = document.getElementById('playerWrap');
+  wrap.innerHTML = `<video id='vid' style='width:100%;background:#000;border-radius:10px;display:block;' ${autoplay !== false ? 'autoplay' : ''} tabindex='0' controls></video>
     <div class='controls' style='justify-content:center;gap:12px;'>
       <button onclick='seek(-10)' title='⏪'>⏪ -10ث</button>
       <button onclick='togglePlay()' id='playBtn'>⏸️</button>
@@ -91,6 +92,28 @@ function renderCustomPlayer(url,autoplay){
       <button onclick='setSpeed(2)'>x2</button>
       <button onclick='toggleFullscreen()'>⛶</button>
     </div>`;
+
+  const video = document.getElementById('vid');
+
+  if (url.endsWith('.m3u8')) {
+    if (Hls.isSupported()) {
+      const hls = new Hls();
+      hls.loadSource(url);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, function () {
+        if (autoplay !== false) video.play();
+      });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = url;
+      if (autoplay !== false) video.play();
+    } else {
+      alert('Your browser does not support HLS playback.');
+    }
+  } else {
+    video.src = url;
+    if (autoplay !== false) video.play();
+  }
+
   setupPlayer();
 }
 function seek(sec){const v=document.getElementById('vid');v.currentTime+=sec;}
