@@ -1,157 +1,336 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-<meta charset="UTF-8">
-<title>منصة السادس - فيديوهات</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-:root {
-  --bg: #181a1b;
-  --fg: #fff;
-  --box: #23272b;
-  --accent: #4f8cff;
-  --border: #333;
-}
-body {
-  font-family: Tahoma, Arial; background: var(--bg); color: var(--fg); direction: rtl; margin:0; min-height:100vh;
-}
-header {background:var(--box);padding:16px 0;text-align:center;box-shadow:0 2px 8px #0002;}
-.box { background: var(--box); border-radius: 10px; box-shadow: 0 2px 8px #0004; padding: 20px; margin: 30px auto; max-width: 600px; }
-select, button { font-size: 1em; padding: 8px 16px; margin: 10px 0; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--fg); }
-button { cursor:pointer; background:var(--accent); color:#fff; border:none; }
-button:hover { background:#2563eb; }
-.back-btn {margin-bottom:20px;}
-.dark-toggle {position:fixed;top:10px;left:10px;z-index:10;}
-.class, .lecture { margin: 20px 0; }
-.lecture-btn {display:block;width:100%;text-align:right;}
-video { width: 100%; max-width: 100%; margin-top: 10px; background:#000; border-radius:10px; }
-.quality-btns button {margin-left:8px;}
-.controls {display:flex;gap:8px;margin:10px 0;flex-wrap:wrap;}
-@media (max-width:700px){.box{margin:10px 2px;padding:10px;}}
-</style>
+  <meta charset="UTF-8" />
+  <title>منصة السادس - فيديوهات</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+  <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+  <style>
+    body {
+      font-family: Tahoma, Arial;
+      background: #181a1b;
+      color: #fff;
+      direction: rtl;
+      margin: 0;
+      padding: 0;
+    }
+    .page { display: none; padding: 20px; }
+    .page.active { display: block; }
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: #202324;
+      padding: 15px;
+      border-radius: 10px;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .video-container {
+      max-width: 900px;
+      margin: auto;
+    }
+    .video-js {
+      border-radius: 10px;
+      width: 100% !important;
+      height: auto !important;
+    }
+    button {
+      padding: 10px 15px;
+      margin-top: 15px;
+      border: none;
+      border-radius: 5px;
+      background: #444;
+      color: white;
+      cursor: pointer;
+      user-select: none;
+    }
+    #teacherImage {
+      max-width: 150px;
+      max-height: 150px;
+      border-radius: 50%;
+      margin-bottom: 15px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+      border: 2px solid #666;
+    }
+    #qualitySelect, #speedSelect {
+      margin: 10px 10px 20px 0;
+      padding: 5px 10px;
+      border-radius: 5px;
+      border: none;
+      background: #333;
+      color: white;
+      cursor: pointer;
+      user-select: none;
+    }
+    .controls-row {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+  </style>
 </head>
 <body>
-<button class="dark-toggle" onclick="toggleDark()">🌙/☀️</button>
-<header><h1>منصة السادس - الفيديوهات</h1></header>
-<div id="app"></div>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-<script>
-let teachersData = [];
-let state = {page:'teachers', teacher:null, classIdx:null, lectureIdx:null};
-fetch('data.json').then(r=>r.json()).then(data=>{teachersData=data.teachers;render();});
-function render(){
-  const app=document.getElementById('app');
-  if(state.page==='teachers'){
-    app.innerHTML = `<div class='box'><h2>اختر المدرس</h2><div style='display:flex;flex-wrap:wrap;gap:16px;justify-content:center;'>${teachersData.map((t,i)=>`<div onclick='selectTeacher(${i})' style='cursor:pointer;text-align:center;background:var(--box);border-radius:10px;padding:12px 8px;width:120px;box-shadow:0 2px 8px #0002;transition:.2s;border:2px solid var(--accent);'><img src='${t.image}' alt='${t.name}' style='width:70px;height:70px;object-fit:cover;border-radius:50%;border:2px solid var(--accent);'><div style='margin-top:8px;font-weight:bold;color:var(--accent);'>${t.name}</div><div style='font-size:13px;color:#aaa;'>${t.subject||''}</div></div>`).join('')}</div></div>`;
-  }else if(state.page==='classes'){
-    const t=teachersData[state.teacher];
-    app.innerHTML = `<div class='box'><button class='back-btn' onclick='backToTeachers()'>⬅ رجوع</button><img src='${t.image}' alt='${t.name}' style='width:80px;border-radius:50%'><h2>${t.name}</h2><p>${t.subject}</p><h3>اختر الفصل</h3><select id='classSel'><option value=''>-- اختر الفصل --</option>${t.classes.map((c,i)=>`<option value='${i}'>${c.name}</option>`).join('')}</select></div>`;
-    document.getElementById('classSel').onchange=e=>{if(e.target.value!==''){state.classIdx=+e.target.value;state.page='lectures';render();}};
-  }else if(state.page==='lectures'){
-    const t=teachersData[state.teacher], c=t.classes[state.classIdx];
-    app.innerHTML = `<div class='box'><button class='back-btn' onclick='backToClasses()'>⬅ رجوع</button><h2>${t.name}</h2><h3>${c.name}</h3><h4>اختر المحاضرة</h4>${c.lectures.map((l,i)=>`<button class='lecture-btn' onclick='selectLecture(${i})'>${l.title} - ${l.description}</button>`).join('')}</div>`;
-  }else if(state.page==='player'){
-    const t=teachersData[state.teacher], c=t.classes[state.classIdx], l=c.lectures[state.lectureIdx];
-    let qualities = getQualities(l.url);
-    let qBtns = qualities.map(q=>`<button onclick='changeQuality("${q.url}")' ${q.selected?'style="background:#2563eb"':''}>${q.label}</button>`).join('');
-    app.innerHTML = `<div class='box'><button class='back-btn' onclick='backToLectures()'>⬅ رجوع</button><h2>${t.name}</h2><h3>${c.name}</h3><h4>${l.title}</h4><div class='quality-btns'>${qBtns}</div><div id='playerWrap'></div></div>`;
-    renderCustomPlayer(qualities.find(q=>q.selected).url);
-  }
-}
-function selectTeacher(i){state.teacher=i;state.page='classes';render();}
-function backToTeachers(){state.page='teachers';state.teacher=null;render();}
-function backToClasses(){state.page='classes';state.classIdx=null;render();}
-function backToLectures(){state.page='lectures';state.lectureIdx=null;render();}
-function selectLecture(i){state.lectureIdx=i;state.page='player';render();}
-function getQualities(url){
-  let base=url.replace(/(_360p|_720p|_1080p)?\.mp4$/,'');
-  let arr=[];
-  if(url.includes('_1080p')){
-    arr=[{label:'1080',url:base+'_1080p.mp4',selected:true},{label:'720',url:base+'_720p.mp4'},{label:'360',url:base+'_360p.mp4'}];
-  }else if(url.includes('_720p')){
-    arr=[{label:'720',url:base+'_720p.mp4',selected:true},{label:'360',url:base+'_360p.mp4'}];
-  }else if(url.includes('_360p')){
-    arr=[{label:'360',url:base+'_360p.mp4',selected:true}];
-  }else{
-    arr=[{label:'الرئيسية',url:url,selected:true}];
-  }
-  return arr;
-}
-function changeQuality(u){
-  renderCustomPlayer(u,true);
-}
-function renderCustomPlayer(url, autoplay) {
-  const wrap = document.getElementById('playerWrap');
-  wrap.innerHTML = `<video id='vid' style='width:100%;background:#000;border-radius:10px;display:block;' ${autoplay !== false ? 'autoplay' : ''} tabindex='0' controls></video>
-    <div class='controls' style='justify-content:center;gap:12px;'>
-      <button onclick='seek(-10)' title='⏪'>⏪ -10ث</button>
-      <button onclick='togglePlay()' id='playBtn'>⏸️</button>
-      <button onclick='seek(10)' title='+10ث'>+10ث ⏩</button>
-      <button onclick='setSpeed(1)'>x1</button>
-      <button onclick='setSpeed(1.5)'>x1.5</button>
-      <button onclick='setSpeed(2)'>x2</button>
-      <button onclick='toggleFullscreen()'>⛶</button>
-    </div>`;
+  <div id="mainPage" class="page active">
+    <h1>منصة السادس</h1>
+    <div class="card-grid" id="teachers"></div>
+  </div>
 
-  const video = document.getElementById('vid');
+  <div id="teacherPage" class="page">
+    <h2 id="teacherName"></h2>
+    <img id="teacherImage" src="" alt="صورة المدرس" />
+    <div class="card-grid" id="classes"></div>
+    <button onclick="navigate('main')">العودة للرئيسية</button>
+  </div>
 
-  if (url.endsWith('.m3u8')) {
-    if (Hls.isSupported()) {
-      const hls = new Hls();
-      hls.loadSource(url);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, function () {
-        if (autoplay !== false) video.play();
-      });
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = url;
-      if (autoplay !== false) video.play();
-    } else {
-      alert('Your browser does not support HLS playback.');
-    }
-  } else {
-    video.src = url;
-    if (autoplay !== false) video.play();
-  }
+  <div id="classPage" class="page">
+    <h2 id="className"></h2>
+    <div class="card-grid" id="lectures"></div>
+    <button onclick="navigate('teacher')">العودة للمدرس</button>
+  </div>
 
-  setupPlayer();
-}
-function seek(sec){const v=document.getElementById('vid');v.currentTime+=sec;}
-function setSpeed(s){const v=document.getElementById('vid');v.playbackRate=s;}
-function togglePlay(){const v=document.getElementById('vid');if(v.paused){v.play();document.getElementById('playBtn').innerText='⏸️';}else{v.pause();document.getElementById('playBtn').innerText='▶️';}}
-function toggleFullscreen(){const v=document.getElementById('vid');if(v.requestFullscreen){v.requestFullscreen();}}
-function setupPlayer(){
-  const v=document.getElementById('vid');
-  v.focus();
-  v.controls=false;
-  v.addEventListener('play',()=>{document.getElementById('playBtn').innerText='⏸️';});
-  v.addEventListener('pause',()=>{document.getElementById('playBtn').innerText='▶️';});
-  v.addEventListener('keydown',e=>{
-    if(e.code==='Space'){e.preventDefault();togglePlay();}
-    if(e.code==='ArrowRight'){seek(10);}
-    if(e.code==='ArrowLeft'){seek(-10);}
+  <div id="videoPage" class="page">
+    <div class="video-container">
+      <video
+        id="videoPlayer"
+        class="video-js vjs-default-skin"
+        controls
+        playsinline
+        webkit-playsinline
+        data-setup='{"fluid": true}'
+      ></video>
+
+      <div class="controls-row">
+        <label for="qualitySelect">الجودة:</label>
+        <select id="qualitySelect"></select>
+
+        <label for="speedSelect">السرعة:</label>
+        <select id="speedSelect">
+          <option value="0.5">0.5x</option>
+          <option value="0.75">0.75x</option>
+          <option value="1" selected>1x</option>
+          <option value="1.25">1.25x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2x</option>
+        </select>
+      </div>
+
+      <h2 id="videoTitle"></h2>
+      <p id="videoDescription"></p>
+      <button onclick="navigate('class')">العودة للفصل</button>
+    </div>
+  </div>
+
+  <script>
+    // ملف data.json الموجود عندك
+  let data = null;
+
+fetch('data.json')
+  .then(response => {
+    if (!response.ok) throw new Error("فشل تحميل بيانات JSON");
+    return response.json();
+  })
+  .then(json => {
+    data = json;
+    navigate("main");
+  })
+  .catch(err => {
+    alert("حدث خطأ أثناء تحميل بيانات المحاضرات: " + err.message);
   });
-  v.addEventListener('touchstart',handleTouchStart,false);
-  v.addEventListener('touchend',handleTouchEnd,false);
-  let x0=null;
-  function handleTouchStart(e){x0=e.changedTouches[0].clientX;}
-  function handleTouchEnd(e){
-    let x1=e.changedTouches[0].clientX;
-    if(x0!==null){
-      if(x1-x0>50)seek(-10);
-      else if(x1-x0<-50)seek(10);
-    }
-    x0=null;
-  }
-}
-function toggleDark(){
-  if(document.body.style.background==="var(--bg)"){
-    document.body.style.background="#fff";document.body.style.color="#000";
-  }else{
-    document.body.style.background="var(--bg)";document.body.style.color="var(--fg)";
-  }
-}
-</script>
 
+
+    let currentTeacher = null;
+    let currentClass = null;
+    let currentLecture = null;
+
+    // إنشاء مشغل الفيديو
+    const player = videojs("videoPlayer");
+
+    function navigate(page) {
+      // توقف الفيديو إذا ننتقل من صفحة الفيديو
+      if (document.getElementById("videoPage").classList.contains("active")) {
+        player.pause();
+      }
+      
+      // إخفاء كل الصفحات
+      document.querySelectorAll(".page").forEach((p) => p.classList.remove("active"));
+      // إظهار الصفحة المطلوبة
+      document.getElementById(page + "Page").classList.add("active");
+
+      // تحديث المحتوى حسب الصفحة
+      if (page === "main") showTeachers();
+      else if (page === "teacher" && currentTeacher) showClasses(currentTeacher);
+      else if (page === "class" && currentClass) showLectures(currentClass);
+      else if (page === "video" && currentLecture) showVideo(currentLecture);
+    }
+
+    // عرض المدرسين
+    function showTeachers() {
+      const container = document.getElementById("teachers");
+      container.innerHTML = "";
+      data.teachers.forEach((teacher) => {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.textContent = teacher.name;
+        div.onclick = () => {
+          currentTeacher = teacher;
+          navigate("teacher");
+        };
+        container.appendChild(div);
+      });
+    }
+
+    // عرض الفصول للمدرس
+    function showClasses(teacher) {
+      const container = document.getElementById("classes");
+      container.innerHTML = "";
+      document.getElementById("teacherName").textContent = teacher.name;
+      document.getElementById("teacherImage").src = teacher.image || "";
+      teacher.classes.forEach((cls) => {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.textContent = cls.name;
+        div.onclick = () => {
+          currentClass = cls;
+          navigate("class");
+        };
+        container.appendChild(div);
+      });
+    }
+
+    // عرض المحاضرات للفصل
+    function showLectures(cls) {
+      const container = document.getElementById("lectures");
+      container.innerHTML = "";
+      document.getElementById("className").textContent = cls.name;
+      cls.lectures.forEach((lec) => {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.textContent = lec.title;
+        div.onclick = () => {
+          currentLecture = lec;
+          navigate("video");
+        };
+        container.appendChild(div);
+      });
+    }
+
+    // متغير يخزن جودات الفيديو المتاحة
+    let availableQualities = [];
+
+    function extractBaseUrl(url) {
+      // حذف الجودة من الرابط (مثال _720p.mp4 إلى فقط الرابط بدون الجودة)
+      return url.replace(/_(1080p|720p|360p)\.mp4$/, "");
+    }
+
+    // عرض الفيديو مع الجودة والسرعة والتحكمات
+    function showVideo(lec) {
+      document.getElementById("videoTitle").textContent = lec.title;
+      document.getElementById("videoDescription").textContent = lec.description || "";
+
+      availableQualities = [];
+
+      if (lec.url.endsWith(".mp4")) {
+        // نجرب نعرف القيم اللي موجودة في الرابط (1080p, 720p, 360p)
+        const baseUrl = extractBaseUrl(lec.url);
+
+        if (lec.url.includes("_1080p.mp4")) {
+          // الفيديو أصله 1080، ندعم 1080 و 720 و 360
+          availableQualities.push({ label: "1080p", url: baseUrl + "_1080p.mp4", type: "video/mp4" });
+          availableQualities.push({ label: "720p", url: baseUrl + "_720p.mp4", type: "video/mp4" });
+          availableQualities.push({ label: "360p", url: baseUrl + "_360p.mp4", type: "video/mp4" });
+        } else if (lec.url.includes("_720p.mp4")) {
+          // أصله 720، ندعم 720 و 360 فقط
+          availableQualities.push({ label: "720p", url: baseUrl + "_720p.mp4", type: "video/mp4" });
+          availableQualities.push({ label: "360p", url: baseUrl + "_360p.mp4", type: "video/mp4" });
+        } else if (lec.url.includes("_360p.mp4")) {
+          // أصله 360 فقط
+          availableQualities.push({ label: "360p", url: baseUrl + "_360p.mp4", type: "video/mp4" });
+        } else {
+          // رابط عادي mp4 بدون جودة معرفة
+          availableQualities.push({ label: "Video", url: lec.url, type: "video/mp4" });
+        }
+      } else if (lec.url.endsWith(".m3u8")) {
+        // m3u8 لا ندعم تغيير جودة، نعرضه فقط جودة auto
+        availableQualities.push({ label: "Auto (m3u8)", url: lec.url, type: "application/x-mpegURL" });
+      } else {
+        // رابط غير معروف نعرضه كما هو
+        availableQualities.push({ label: "Video", url: lec.url, type: "video/mp4" });
+      }
+
+      // إعداد قائمة اختيار الجودة
+      const qualitySelect = document.getElementById("qualitySelect");
+      qualitySelect.innerHTML = "";
+      availableQualities.forEach((q, i) => {
+        const option = document.createElement("option");
+        option.value = i;
+        option.textContent = q.label;
+        qualitySelect.appendChild(option);
+      });
+
+      // نوقف الفيديو الحالي
+      player.pause();
+
+      // تحميل أول جودة افتراضياً
+      player.src({ src: availableQualities[0].url, type: availableQualities[0].type });
+      player.load();
+      player.play();
+
+      qualitySelect.value = 0;
+
+      qualitySelect.onchange = () => {
+        const q = availableQualities[qualitySelect.value];
+        player.pause();
+        player.src({ src: q.url, type: q.type });
+        player.load();
+        player.play();
+      };
+
+      // سرعة التشغيل
+      const speedSelect = document.getElementById("speedSelect");
+      speedSelect.value = "1";
+      speedSelect.onchange = () => {
+        player.playbackRate(speedSelect.value);
+      };
+
+      // تهيئة اختصارات لوحة المفاتيح
+      setupKeyboardShortcuts();
+    }
+
+    // اختصارات لوحة المفاتيح: مسافة للتشغيل/إيقاف، A/D & أسهم للتقديم/التأخير 10 ثواني
+    function setupKeyboardShortcuts() {
+      document.onkeydown = function (e) {
+        if (document.getElementById("videoPage").classList.contains("active")) {
+          if (e.target.tagName.toLowerCase() === "input" || e.target.tagName.toLowerCase() === "select" || e.target.isContentEditable) return;
+
+          switch (e.key.toLowerCase()) {
+            case " ":
+              e.preventDefault();
+              if (player.paused()) player.play();
+              else player.pause();
+              break;
+            case "a":
+            case "arrowleft":
+              e.preventDefault();
+              player.currentTime(Math.max(0, player.currentTime() - 10));
+              break;
+            case "d":
+            case "arrowright":
+              e.preventDefault();
+              player.currentTime(Math.min(player.duration(), player.currentTime() + 10));
+              break;
+          }
+        }
+      };
+    }
+
+    // بدء التطبيق بصفحة المدرسين
+    navigate("main");
+  </script>
 </body>
 </html>
