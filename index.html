@@ -139,51 +139,50 @@
             const watched = Storage.getWatched();
             watched[id] = true;
             localStorage.setItem('watchedVideos', JSON.stringify(watched));
-            showLectures(currentClass);
+            if(currentClass) showLectures(currentClass);
         }
     };
 
-    document.addEventListener('DOMContentLoaded', async () => {
+    // ⭐ تم إصلاح هذا الجزء بالكامل
+    document.addEventListener('DOMContentLoaded', () => {
+        const loginBtn = document.getElementById('loginBtn');
+        const passwordInput = document.getElementById('passwordInput');
+        
+        loginBtn.addEventListener('click', attemptLogin);
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') attemptLogin();
+        });
+    });
+
+    async function attemptLogin() {
+        const password = document.getElementById('passwordInput').value;
+        const loginError = document.getElementById('loginError');
+        loginError.style.display = 'none';
+        if (!password) return;
+
         try {
             const response = await fetch('data.txt');
-            if (!response.ok) throw new Error("File not found");
+            if (!response.ok) throw new Error("File not found (data.txt)");
             const encryptedData = await response.text();
-            // This is a placeholder for your actual login logic
-            // For now, let's assume login is successful and we have the data
-            // In a real scenario, you would decrypt here.
-            // For this example, I'll use a placeholder JSON.
-            // To make it work, replace this with your decryption logic.
-            // For now, I'm fetching a placeholder data.json to make the app run
-             const data_response = await fetch('data.json'); // REMOVE THIS LINE
-             data = await data_response.json(); // REMOVE THIS LINE
-             initializeApp(); // REMOVE THIS LINE
             
-            // Your real login logic would look something like this:
-            /*
-            document.getElementById('loginBtn').addEventListener('click', async () => {
-                const password = document.getElementById('passwordInput').value;
-                if (!password) return;
-                try {
-                    const decryptedBytes = CryptoJS.AES.decrypt(encryptedData, password);
-                    const decryptedJson = decryptedBytes.toString(CryptoJS.enc.Utf8);
-                    if (!decryptedJson) throw new Error("Wrong password");
-                    data = JSON.parse(decryptedJson);
+            const decryptedBytes = CryptoJS.AES.decrypt(encryptedData, password);
+            const decryptedJson = decryptedBytes.toString(CryptoJS.enc.Utf8);
 
-                    const loginOverlay = document.getElementById('login-overlay');
-                    loginOverlay.style.opacity = '0';
-                    setTimeout(() => loginOverlay.style.display = 'none', 500);
-                    document.getElementById('app-content').classList.remove('hidden');
-                    initializeApp();
-                } catch (err) {
-                    document.getElementById('loginError').style.display = 'block';
-                }
-            });
-            */
+            if (!decryptedJson) throw new Error("Wrong password");
+            
+            data = JSON.parse(decryptedJson);
+
+            const loginOverlay = document.getElementById('login-overlay');
+            loginOverlay.style.opacity = '0';
+            setTimeout(() => { loginOverlay.style.display = 'none'; }, 500);
+            
+            document.getElementById('app-content').classList.remove('hidden');
+            initializeApp();
         } catch (err) {
-            console.error("Error:", err);
-            document.body.innerHTML = `<h1 style="text-align:center;color:red;">فشل تحميل ملف البيانات.</h1>`;
+            console.error("Login/Decryption Error:", err);
+            loginError.style.display = 'block';
         }
-    });
+    }
     
     function initializeApp() {
         initializePlayer();
@@ -315,12 +314,13 @@
         if (progressInterval) clearInterval(progressInterval);
         
         const initialQuality = availableQualities.find(q => q.isInitial) || availableQualities[0];
-        
-        // ⭐ الإصلاح هنا: تم نقل استرجاع الوقت إلى داخل حدث `ready`
         player.src({ src: initialQuality.url, type: initialQuality.type });
-        player.one('ready', () => {
+        
+        // ⭐ تم إصلاح توقيت استرجاع التقدم
+        player.one('loadedmetadata', () => {
             const savedTime = Storage.getProgress()[videoId];
-            if (savedTime > 0 && savedTime < player.duration() - 1) {
+            // تأكد من أن الوقت المحفوظ صالح قبل القفز إليه
+            if (savedTime && savedTime > 0 && savedTime < player.duration() - 1) {
                 player.currentTime(savedTime);
             }
             player.play();
@@ -329,7 +329,9 @@
         player.playbackRate(1);
 
         progressInterval = setInterval(() => {
-            if (!player.paused()) Storage.saveProgress(videoId, player.currentTime());
+            if (!player.paused() && player.currentTime() > 0) {
+                 Storage.saveProgress(videoId, player.currentTime());
+            }
         }, 5000);
 
         const nextLectureBtn = document.getElementById('nextLectureBtn');
@@ -369,7 +371,7 @@
             qOptions.forEach(q => availableQualities.push({ label: q, url: `${baseUrl}_${q}.mp4`, type: 'video/mp4', isInitial: q === originalQuality }));
         } else if (mediaPattern.test(url)) {
             const currentNum = parseInt(url.match(mediaPattern)[1]), baseUrl = url.replace(/media-\d+\/stream\.m3u8$/, "");
-            for (let i = 1; i <= 5; i++) availableQualities.push({ label: `الجودة ${i}`, url: `${baseUrl}media-${i}/stream\.m3u8`, type: "application/x-mpegURL", isInitial: i === currentNum });
+            for (let i = 1; i <= 5; i++) availableQualities.push({ label: `الجودة ${i}`, url: `${baseUrl}media-${i}/stream.m3u8`, type: "application/x-mpegURL", isInitial: i === currentNum });
         } else {
             availableQualities.push({ label: "Auto", url, type: url.endsWith('.m3u8') ? "application/x-mpegURL" : "video/mp4", isInitial: true });
         }
